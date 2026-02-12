@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard de Monitoramento - Câmeras YOLO</title>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        color: white;
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+
+      .header {
+        background: rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(10px);
+        padding: 1rem 2rem;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+      }
+
+      .header h1 {
+        font-size: 1.8rem;
+        background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .container {
+        display: grid;
+        grid-template-columns: 300px 1fr 300px;
+        gap: 2rem;
+        padding: 2rem;
+        min-height: calc(100vh - 80px);
+      }
+
+      .sidebar {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(15px);
+        border-radius: 20px;
+        padding: 1.5rem;
+        height: fit-content;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      }
+
+      .main-content {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(15px);
+        border-radius: 20px;
+        padding: 2rem;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      }
+
+      .camera-selector {
+        margin-bottom: 2rem;
+      }
+
+      .camera-selector h3 {
+        margin-bottom: 1rem;
+        color: #4ecdc4;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      select {
+        width: 100%;
+        padding: 12px;
+        border: none;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        font-size: 14px;
+        backdrop-filter: blur(10px);
+        margin-bottom: 1rem;
+      }
+
+      select option {
+        background: #2a5298;
+        color: white;
+      }
+
+      .btn-group {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+      }
+
+      .btn {
+        padding: 12px 20px;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(10px);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        flex: 1;
+        justify-content: center;
+      }
+
+      .btn-primary {
+        background: linear-gradient(45deg, #4ecdc4, #44a08d);
+        color: white;
+      }
+
+      .btn-danger {
+        background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+        color: white;
+      }
+
+      .btn-warning {
+        background: linear-gradient(45deg, #feca57, #ff9ff3);
+        color: white;
+      }
+
+      .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+      }
+
+      .btn:active {
+        transform: translateY(0);
+      }
+
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .video-container {
+        position: relative;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+        margin-bottom: 2rem;
+        background: #000;
+      }
+
+      #video {
+        width: 100%;
+        max-height: 500px;
+        object-fit: cover;
+      }
+
+      .video-overlay {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 10px 15px;
+        border-radius: 20px;
+        backdrop-filter: blur(10px);
+        font-size: 12px;
+      }
+
+      .status-indicator {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 8px;
+      }
+
+      .status-active {
+        background: #4ecdc4;
+        box-shadow: 0 0 10px #4ecdc4;
+      }
+
+      .status-inactive {
+        background: #ff6b6b;
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-top: 2rem;
+      }
+
+      .stat-card {
+        background: rgba(255, 255, 255, 0.1);
+        padding: 1.5rem;
+        border-radius: 15px;
+        text-align: center;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        transition: transform 0.3s ease;
+      }
+
+      .stat-card:hover {
+        transform: translateY(-5px);
+      }
+
+      .stat-number {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #4ecdc4;
+        margin-bottom: 0.5rem;
+      }
+
+      .stat-label {
+        font-size: 0.9rem;
+        opacity: 0.8;
+      }
+
+      .performance-section {
+        margin-top: 2rem;
+      }
+
+      .performance-section h3 {
+        margin-bottom: 1rem;
+        color: #feca57;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .metric-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .metric-row:last-child {
+        border-bottom: none;
+      }
+
+      .metric-value {
+        color: #4ecdc4;
+        font-weight: bold;
+      }
+
+      .plates-list {
+        max-height: 200px;
+        overflow-y: auto;
+        margin-top: 1rem;
+      }
+
+      .plate-item {
+        background: rgba(255, 255, 255, 0.1);
+        padding: 8px 12px;
+        border-radius: 8px;
+        margin-bottom: 5px;
+        font-family: "Courier New", monospace;
+        font-weight: bold;
+      }
+
+      .loading {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .spinner {
+        width: 20px;
+        height: 20px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top: 2px solid #4ecdc4;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .system-stats {
+        margin-bottom: 2rem;
+      }
+
+      .system-stats h3 {
+        margin-bottom: 1rem;
+        color: #ff9ff3;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .progress-bar {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 10px;
+        height: 8px;
+        margin: 5px 0;
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        height: 100%;
+        border-radius: 10px;
+        transition: width 0.3s ease;
+      }
+
+      .progress-cpu {
+        background: linear-gradient(45deg, #4ecdc4, #44a08d);
+      }
+
+      .progress-memory {
+        background: linear-gradient(45deg, #feca57, #ff9ff3);
+      }
+
+      .progress-gpu {
+        background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+      }
+
+      .camera-list {
+        margin-top: 1rem;
+      }
+
+      .camera-item {
+        background: rgba(255, 255, 255, 0.1);
+        padding: 15px;
+        border-radius: 12px;
+        margin-bottom: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        transition: all 0.3s ease;
+      }
+
+      .camera-item:hover {
+        background: rgba(255, 255, 255, 0.15);
+        transform: translateX(5px);
+      }
+
+      .camera-name {
+        font-weight: bold;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .camera-stats {
+        font-size: 0.8rem;
+        opacity: 0.8;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 5px;
+      }
+
+      .auto-refresh {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 10px 15px;
+        border-radius: 20px;
+        font-size: 12px;
+        backdrop-filter: blur(10px);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .refresh-dot {
+        width: 8px;
+        height: 8px;
+        background: #4ecdc4;
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.3;
+        }
+      }
+
+      @media (max-width: 1200px) {
+        .container {
+          grid-template-columns: 1fr;
+          gap: 1rem;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .container {
+          padding: 1rem;
+        }
+
+        .btn-group {
+          flex-direction: column;
+        }
+
+        .stats-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>
+        <i class="fas fa-video"></i> Dashboard YOLO - Monitoramento Inteligente
+      </h1>
+    </div>
+
+    <div class="container">
+      <!-- Sidebar Esquerda - Controles -->
+      <div class="sidebar">
+        <div class="camera-selector">
+          <h3><i class="fas fa-camera"></i> Selecionar Câmera</h3>
+          <select id="cameraSelect">
+            <option value="">Carregando câmeras...</option>
+          </select>
+
+          <div class="btn-group">
+            <button class="btn btn-primary" onclick="startCamera()">
+              <i class="fas fa-play"></i> Iniciar
+            </button>
+            <button class="btn btn-danger" onclick="stopCamera()">
+              <i class="fas fa-stop"></i> Parar
+            </button>
+          </div>
+
+          <button
+            class="btn btn-warning"
+            onclick="saveLastSeconds()"
+            style="width: 100%"
+          >
+            <i class="fas fa-save"></i> Salvar Últimos Segundos
+          </button>
+        </div>
+
+        <div class="system-stats">
+          <h3><i class="fas fa-server"></i> Sistema</h3>
+          <div class="metric-row">
+            <span>CPU:</span>
+            <div style="flex: 1; margin: 0 10px">
+              <div class="progress-bar">
+                <div class="progress-fill progress-cpu" id="cpuBar"></div>
+              </div>
+            </div>
+            <span class="metric-value" id="cpuValue">0%</span>
+          </div>
+          <div class="metric-row">
+            <span>RAM:</span>
+            <div style="flex: 1; margin: 0 10px">
+              <div class="progress-bar">
+                <div class="progress-fill progress-memory" id="memoryBar"></div>
+              </div>
+            </div>
+            <span class="metric-value" id="memoryValue">0%</span>
+          </div>
+          <div class="metric-row" id="gpuRow" style="display: none">
+            <span>GPU:</span>
+            <div style="flex: 1; margin: 0 10px">
+              <div class="progress-bar">
+                <div class="progress-fill progress-gpu" id="gpuBar"></div>
+              </div>
+            </div>
+            <span class="metric-value" id="gpuValue">0%</span>
+          </div>
+        </div>
+
+        <div class="camera-list">
+          <h3><i class="fas fa-list"></i> Câmeras Ativas</h3>
+          <div id="cameraListContainer">
+            <div class="loading">
+              <div class="spinner"></div>
+              <span>Carregando...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Conteúdo Principal - Video -->
+      <div class="main-content">
+        <div class="video-container">
+          <video
+          id="videoPlayer"
+          class="video-js vjs-default-skin"
+          controls
+          autoplay
+          muted
+          playsinline
+          style="width: 100%; max-width: 800px"
+        ></video>
+        
+
+          <div class="video-overlay" id="videoStatus">
+            <span class="status-indicator status-inactive"></span>
+            Câmera Inativa
+          </div>
+        </div>
+
+        <div class="stats-grid" id="currentCameraStats">
+          <div class="stat-card">
+            <div class="stat-number" id="objectsCount">0</div>
+            <div class="stat-label">Objetos Detectados</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" id="platesCount">0</div>
+            <div class="stat-label">Placas Detectadas</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" id="fpsCount">0</div>
+            <div class="stat-label">FPS Médio</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" id="latencyCount">0ms</div>
+            <div class="stat-label">Latência</div>
+          </div>
+        </div>
+
+        <div
+          class="performance-section"
+          id="performanceSection"
+          style="display: none"
+        >
+          <h3><i class="fas fa-tachometer-alt"></i> Performance da Câmera</h3>
+          <div class="metric-row">
+            <span>Processamento de Frame:</span>
+            <span class="metric-value" id="frameProcessing">0ms</span>
+          </div>
+          <div class="metric-row">
+            <span>Detecção YOLO:</span>
+            <span class="metric-value" id="yoloDetection">0ms</span>
+          </div>
+          <div class="metric-row">
+            <span>OCR (média):</span>
+            <span class="metric-value" id="ocrProcessing">0ms</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar Direita - Detecções -->
+      <div class="sidebar">
+        <div>
+          <h3><i class="fas fa-eye"></i> Detecções Recentes</h3>
+          <div id="objectBreakdown">
+            <div class="loading">
+              <div class="spinner"></div>
+              <span>Aguardando dados...</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top: 2rem">
+          <h3><i class="fas fa-id-card"></i> Placas Identificadas</h3>
+          <div class="plates-list" id="platesList">
+            <div class="loading">
+              <div class="spinner"></div>
+              <span>Aguardando detecções...</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top: 2rem">
+          <h3><i class="fas fa-chart-line"></i> Estatísticas Globais</h3>
+          <div class="metric-row">
+            <span>Total de Objetos:</span>
+            <span class="metric-value" id="totalObjects">0</span>
+          </div>
+          <div class="metric-row">
+            <span>Total de Placas:</span>
+            <span class="metric-value" id="totalPlates">0</span>
+          </div>
+          <div class="metric-row">
+            <span>Câmeras Ativas:</span>
+            <span class="metric-value" id="activeCameras">0</span>
+          </div>
+          <div class="metric-row">
+            <span>GPU Disponível:</span>
+            <span class="metric-value" id="gpuAvailable">Verificando...</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="auto-refresh">
+      <div class="refresh-dot"></div>
+      <span>Auto-refresh ativo</span>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <!-- Video.js JS -->
+<script src="https://vjs.zencdn.net/8.14.1/video.min.js"></script>
+<!-- Video.js HLS suporte -->
+<script src="https://cdn.jsdelivr.net/npm/videojs-contrib-hls@5.15.0/dist/videojs-contrib-hls.min.js"></script>
+
+    <script>
+      let currentCameraId = null;
+      let hls = null;
+      let refreshInterval = null;
+
+      const video = document.getElementById("videoPlayer");
+      const select = document.getElementById("cameraSelect");
+
+      // Inicialização
+      document.addEventListener("DOMContentLoaded", function () {
+        loadCameras();
+        startAutoRefresh();
+      });
+
+      // Carrega lista de câmeras
+      async function loadCameras() {
+        try {
+          const res = await fetch("/cameras");
+          const cameras = await res.json();
+
+          select.innerHTML = '<option value="">Selecione uma câmera</option>';
+          cameras.forEach((cam) => {
+            const option = document.createElement("option");
+            option.value = cam.id;
+            option.text = `${cam.nome} (${cam.status})`;
+            select.appendChild(option);
+          });
+
+          updateCameraList(cameras);
+        } catch (error) {
+          console.error("Erro ao carregar câmeras:", error);
+          select.innerHTML = '<option value="">Erro ao carregar</option>';
+        }
+      }
+
+      // Atualiza lista visual das câmeras
+      function updateCameraList(cameras) {
+        const container = document.getElementById("cameraListContainer");
+
+        if (cameras.length === 0) {
+          container.innerHTML = "<div>Nenhuma câmera encontrada</div>";
+          return;
+        }
+
+        container.innerHTML = cameras
+          .map(
+            (cam) => `
+                <div class="camera-item" onclick="selectCamera(${cam.id})">
+                    <div class="camera-name">
+                        <span class="status-indicator ${
+                          cam.status === "active"
+                            ? "status-active"
+                            : "status-inactive"
+                        }"></span>
+                        ${cam.nome}
+                    </div>
+                    <div class="camera-stats">
+                        <div>Objetos: ${cam.objects_detected || 0}</div>
+                        <div>Placas: ${cam.plates_detected || 0}</div>
+                    </div>
+                </div>
+            `
+          )
+          .join("");
+      }
+
+      // Seleciona uma câmera da lista
+      function selectCamera(cameraId) {
+        select.value = cameraId;
+        currentCameraId = cameraId;
+        updateCameraStats();
+      }
+
+      // Inicia câmera
+// Inicia câmera
+// Substitua a função startCamera() completa por esta versão:
+let player = null;   // Video.js player global
+
+async function startCamera() {
+    const cameraId = document.getElementById("cameraSelect").value;
+    if (!cameraId) return alert("Selecione uma câmera");
+
+    try {
+        updateVideoStatus("Iniciando...", "loading");
+
+        // Solicita ao backend a URL da stream HLS
+        const res = await fetch(`/start/${cameraId}`);
+        const data = await res.json();
+        const streamUrl = `${window.location.origin}${data.stream_url}`;
+
+        if (!streamUrl) throw new Error("Stream inválido");
+
+        // Inicializa Video.js apenas uma vez
+        if (!player) {
+            player = videojs("videoPlayer", {
+                autoplay: true,
+                muted: true,
+                controls: true,
+                html5: {
+                    hls: {
+                        overrideNative: true
+                    }
+                }
+            });
+        }
+
+        // Usa Hls.js se suportado e Video.js não reproduzir nativamente
+        if (Hls.isSupported()) {
+            if (player.hls) {
+                player.hls.destroy();
+            }
+
+            const hls = new Hls({
+                enableWorker: false,
+                lowLatencyMode: true,
+                maxBufferLength: 600
+            });
+
+            hls.loadSource(streamUrl);http://192.168.15.3/doc/index.html#/config/commonConfiguration?t=1758909822080
+            hls.attachMedia(player.tech().el());
+
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                player.play().catch(() => (player.controls(true)));
+                updateVideoStatus("Ao Vivo", "active");
+            });
+
+            // Salva referência HLS para futuras paradas
+            player.hls = hls;
+
+        } else {
+            // Fallback nativo (Safari)
+            player.src({ src: streamUrl, type: "application/x-mpegURL" });
+            player.play().catch(() => player.controls(true));
+            updateVideoStatus("Ao Vivo", "active");
+        }
+
+        currentCameraId = parseInt(cameraId);
+
+    } catch (error) {
+        console.error("Erro ao iniciar câmera:", error);
+        alert(`Erro: ${error.message}`);
+        updateVideoStatus("Erro", "inactive");
+    }
+}
+
+async function stopCamera() {
+    if (!currentCameraId) return alert("Nenhuma câmera ativa");
+
+    try {
+        await fetch(`/stop/${currentCameraId}`);
+
+        if (player) {
+            if (player.hls) {
+                player.hls.destroy();
+                player.hls = null;
+            }
+            player.pause();
+            player.src({ src: "", type: "video/mp4" }); // limpa video
+        }
+
+        updateVideoStatus("Câmera Parada", "inactive");
+        currentCameraId = null;
+
+    } catch (error) {
+        console.error("Erro ao parar câmera:", error);
+        alert("Erro ao parar câmera");
+    }
+}
+
+function updateVideoStatus(text, status) {
+    const statusEl = document.getElementById("videoStatus");
+    statusEl.innerHTML = `<span class="status-indicator status-${status}"></span>${text}`;
+}
+
+
+      async function saveLastSeconds() {
+        if (!currentCameraId) {
+          alert("Selecione uma câmera ativa primeiro");
+          return;
+        }
+
+        const seconds = prompt("Quantos segundos deseja salvar?", "10");
+        if (!seconds || isNaN(seconds)) return;
+
+        try {
+          const res = await fetch(
+            `/save/${currentCameraId}?seconds=${seconds}`
+          );
+
+          if (res.ok) {
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `camera_${currentCameraId}_last_${seconds}s.mp4`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+          } else {
+            const error = await res.json();
+            throw new Error(error.detail || "Erro ao salvar vídeo");
+          }
+        } catch (error) {
+          console.error("Erro ao salvar:", error);
+          alert(`Erro: ${error.message}`);
+        }
+      }
+
+      // Atualiza status do vídeo
+      function updateVideoStatus(text, status) {
+        const statusEl = document.getElementById("videoStatus");
+        const indicator = statusEl.querySelector(".status-indicator");
+
+        statusEl.innerHTML = `<span class="status-indicator status-${status}"></span>${text}`;
+      }
+
+      // Atualiza estatísticas da câmera atual
+      async function updateCameraStats() {
+        if (!currentCameraId) return;
+
+        try {
+          const res = await fetch(`/camera/${currentCameraId}/stats`);
+          if (res.ok) {
+            const stats = await res.json();
+
+            document.getElementById("objectsCount").textContent =
+              stats.objects_detected;
+            document.getElementById("platesCount").textContent =
+              stats.plates_detected.length;
+
+            // Atualiza breakdown de objetos
+            updateObjectBreakdown(stats.object_breakdown);
+
+            // Atualiza lista de placas
+            updatePlatesList(stats.plates_detected);
+          }
+        } catch (error) {
+          console.error("Erro ao buscar estatísticas:", error);
+        }
+      }
+
+      // Atualiza breakdown de objetos
+      function updateObjectBreakdown(breakdown) {
+        const container = document.getElementById("objectBreakdown");
+
+        if (!breakdown || Object.keys(breakdown).length === 0) {
+          container.innerHTML = "<div>Nenhum objeto detectado</div>";
+          return;
+        }
+
+        container.innerHTML = Object.entries(breakdown)
+          .map(
+            ([type, count]) => `
+                <div class="metric-row">
+                    <span style="text-transform: capitalize;">${type}:</span>
+                    <span class="metric-value">${count}</span>
+                </div>
+            `
+          )
+          .join("");
+      }
+
+      // Atualiza lista de placas
+      function updatePlatesList(plates) {
+        const container = document.getElementById("platesList");
+
+        if (!plates || plates.length === 0) {
+          container.innerHTML = "<div>Nenhuma placa detectada</div>";
+          return;
+        }
+
+        container.innerHTML = plates
+          .map(
+            (plate) => `
+                <div class="plate-item">${plate}</div>
+            `
+          )
+          .join("");
+      }
+
+      // Atualiza estatísticas de performance
+      function updatePerformanceStats(stats) {
+        if (!stats) return;
+
+        const section = document.getElementById("performanceSection");
+        section.style.display = "block";
+
+        document.getElementById("fpsCount").textContent = Math.round(
+          stats.fps || 0
+        );
+        document.getElementById("frameProcessing").textContent = `${Math.round(
+          stats.frame_processing?.avg_ms || 0
+        )}ms`;
+        document.getElementById("yoloDetection").textContent = `${Math.round(
+          stats.detection?.avg_ms || 0
+        )}ms`;
+        document.getElementById("ocrProcessing").textContent = `${Math.round(
+          stats.ocr?.avg_ms || 0
+        )}ms`;
+        document.getElementById("latencyCount").textContent = `${Math.round(
+          stats.frame_processing?.avg_ms || 0
+        )}ms`;
+      }
+
+      // Atualiza estatísticas do sistema
+      async function updateSystemStats() {
+        try {
+          // Status geral do sistema
+          const statusRes = await fetch("/status");
+          if (statusRes.ok) {
+            const status = await statusRes.json();
+
+            document.getElementById("totalObjects").textContent =
+              status.total_objects_detected;
+            document.getElementById("totalPlates").textContent =
+              status.total_plates_detected;
+            document.getElementById("activeCameras").textContent =
+              status.active_cameras.length;
+            document.getElementById("gpuAvailable").textContent =
+              status.gpu_available ? "Sim" : "Não";
+          }
+
+          // Estatísticas de performance do sistem
+        } catch (error) {
+          console.error("Erro ao atualizar estatísticas do sistema:", error);
+        }
+      }
+
+      // Atualização automática
+      function startAutoRefresh() {
+        if (refreshInterval) clearInterval(refreshInterval);
+        refreshInterval = setInterval(() => {
+          loadCameras();
+          updateSystemStats();
+          if (currentCameraId) {
+            updateCameraStats();
+          }
+        }, 5000); // Atualiza a cada 5 segundos
+      }
+    </script>
+  </body>
+</html>
