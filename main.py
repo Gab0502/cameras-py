@@ -48,7 +48,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-cameraId=139
 @app.middleware("http")
 async def restrict_access(request: Request, call_next):
     path = request.url.path
